@@ -1,5 +1,8 @@
 # Risk Register: SSH brute-force detection with threat-intelligence enrichment
 
+> Module 4, Session 1 · Version 0.1 · 2026-10-13
+> Exported from RISK-REGISTER.xlsx (course template). Scores use the template's Scales sheet.
+
 ## Scope
 
 - **Problem:** an SSH bastion host is continuously targeted by bots guessing passwords. Without detection the attack is invisible.
@@ -13,7 +16,7 @@ Register: Operational = risk from the AI agent in the engineering workflow · In
 
 | ID | Register | Asset | Threat / technique | ATT&CK ID | Vulnerability | L | I | Inherent | Control | Res. L | Res. I | Residual | Evidence | Owner | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| R-01 | Operational | main branch of the detection repository | AI agent (Claude Code) pushes Sigma rules or Compose changes straight to main, bypassing review | n/a | Agent runs with the student's push rights; main has no ruleset | 4 | 4 | 16 (High) | GitHub ruleset on main: pull request required, required status checks, no direct or force push; CODEOWNERS on rules/ and .github/ | 1 | 4 | 4 (Low) |  |  | Open |
+| R-01 | Operational | main branch of the detection repository | AI agent (Claude Code) pushes Sigma rules or Compose changes straight to main, bypassing review | n/a | Agent runs with the student's push rights; main has no ruleset | 4 | 4 | 16 (High) | GitHub ruleset `protect-main` on main: pull request required, no direct push, force pushes blocked, deletion restricted, empty bypass list; CODEOWNERS for all files. Required status checks added in Session 4 (no CI yet) | 2 | 4 | 8 (Medium) | Ruleset `protect-main` (Settings → Rules); .github/CODEOWNERS; docs/evidence/r01-push-rejected.png; docs/evidence/r01-protected-branch.png; PR #1 | i0ana404 | Implemented |
 | R-02 | Operational | MISP and Shodan API keys | Agent or student commits a plaintext API key to the public repository | T1552.001 | Repository is public; no secret scanning before push | 4 | 5 | 20 (High) | pre-commit gitleaks hook plus gitleaks in CI; secrets encrypted with SOPS/age; .env listed in .gitignore | 2 | 3 | 6 (Low) |  |  | Open |
 | R-03 | Operational | Sigma rules for sshd authentication logs | AI-generated rule uses a wrong field name or threshold and silently never fires | n/a | No tests; rule output accepted without validation | 4 | 4 | 16 (High) | Every rule ships with positive and negative sshd log samples; pytest and sigma-cli check run in CI; banned patterns listed in CLAUDE.md | 2 | 4 | 8 (Medium) |  |  | Open |
 | R-04 | Operational | Audit trail (commit and pull request history) | Agent writes vague commit messages and pull requests that do not say which risk they address | n/a | No commit convention; no pull request template | 3 | 2 | 6 (Low) | Conventional Commits (docs:, feat:, fix:); pull request template requiring risk IDs; rule written in CLAUDE.md | 1 | 2 | 2 (Low) |  |  | Open |
@@ -28,7 +31,7 @@ Evidence and Owner are filled in as each control is implemented. A row marked Im
 
 ## Residual score justification
 
-- **R-01** (16 → 4): Likelihood drops because the direct-push path is closed by the platform, not by discipline. Impact is unchanged: if review is bypassed anyway, the damage is the same.
+- **R-01** (16 → 8): Likelihood drops because the direct-push path is closed by the platform, not by discipline; a direct push was tested and rejected. It stays at 2, not 1, because required approvals are 0 (single maintainer) and no status checks exist yet, so a pull request opened under the owner's account could still be merged without automated checks. Target after Session 4 CI: 1 (score 4). Impact is unchanged: if review is bypassed anyway, the damage is the same.
 - **R-02** (20 → 6): Two layers (local hook and CI) make a leak unlikely. Impact falls because keys are scoped to the lab and can be rotated.
 - **R-03** (16 → 8): A broken rule fails the positive-sample test before merge. Impact is unchanged: a rule that slips through still leaves the attack unseen.
 - **R-04** (6 → 2): The template forces a risk ID in every pull request, so the history reads as the register being closed row by row.
