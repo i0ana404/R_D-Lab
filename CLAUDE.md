@@ -25,7 +25,8 @@ Risks and controls are tracked in RISK-REGISTER.md. Every change must serve a ri
 
 ## Stack conventions
 
-- OpenSearch, OpenSearch Dashboards and Logstash run with Docker Compose (`docker-compose.yml` in the repository root).
+- OpenSearch, OpenSearch Dashboards and Logstash run with Docker Compose (`compose.yaml` in the repository root).
+- Never hardcode host ports or hostnames. Read them from `.env`; the variables and their defaults are documented in `.env.example`.
 - Logstash pipelines go in `logstash/pipeline/`, named `NN-purpose.conf` (for example `20-filter-sshd.conf`).
 - OpenSearch index templates go in `opensearch/templates/`.
 - Sigma rules go in `rules/`, named `sshd_<technique>.yml`, each mapped to a MITRE ATT&CK ID.
