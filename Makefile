@@ -11,5 +11,7 @@ secrets:
 up: secrets
 	docker compose --env-file .env --env-file .env.secrets up -d
 
+# The compose file requires the admin password variable even for `down`. The placeholder only
+# satisfies that check; `down` never uses it. .env.secrets is deleted even if `down` fails.
 down:
-	docker compose down -v && rm -f .env.secrets
+	OPENSEARCH_INITIAL_ADMIN_PASSWORD=unused docker compose down -v; rc=$$?; rm -f .env.secrets; exit $$rc
