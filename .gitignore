@@ -3,3 +3,4 @@
 !.env.example
 certs/
 .venv/
+__pycache__/
