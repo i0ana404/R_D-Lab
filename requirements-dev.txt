@@ -1,0 +1,4 @@
+# Test dependencies for the CI "test" job and `make test`.
+# Pinned exactly so every run installs the same version (verified on PyPI on 2026-11-09).
+pytest==9.2.0
+PyYAML==6.0.3

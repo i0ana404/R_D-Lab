@@ -1,7 +1,7 @@
 # Deploy targets from Lab 3 (R-02). Run by a person in the Ubuntu VM, never by the AI agent.
 # .PHONY is required: without it, make treats the secrets/ directory as the 'secrets' target
 # and skips decryption.
-.PHONY: secrets up down
+.PHONY: secrets up down test
 
 # Decrypt the admin password at deploy time only. umask 077 makes .env.secrets readable by the
 # owner alone, and `make down` deletes it.
@@ -15,3 +15,7 @@ up: secrets
 # satisfies that check; `down` never uses it. .env.secrets is deleted even if `down` fails.
 down:
 	OPENSEARCH_INITIAL_ADMIN_PASSWORD=unused docker compose down -v; rc=$$?; rm -f .env.secrets; exit $$rc
+
+# Run the test suite: the same command the CI "test" job runs (Lab 4).
+test:
+	python3 -m pytest -q
