@@ -223,3 +223,23 @@ def test_invalid_user_negative_sample_does_not_fire_rule():
     assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
     fired = [get(e, "event.original") for e in events if rule_matches(RULE_INVALID_USER, e)]
     assert not fired, f"rule fired on: {fired}"
+
+
+# End to end for rules/sshd_root_password_login.yml (R-03, R-07): raw sshd line -> pipeline -> rule.
+RULE_ROOT_PASSWORD = ROOT / "rules" / "sshd_root_password_login.yml"
+
+
+def test_root_password_positive_sample_fires_rule():
+    sample = SAMPLES / "sshd_root_password_positive.log"
+    events = run_pipeline(sample)
+    assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
+    quiet = [get(e, "event.original") for e in events if not rule_matches(RULE_ROOT_PASSWORD, e)]
+    assert not quiet, f"rule did not fire on: {quiet}"
+
+
+def test_root_password_negative_sample_does_not_fire_rule():
+    sample = SAMPLES / "sshd_root_password_negative.log"
+    events = run_pipeline(sample)
+    assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
+    fired = [get(e, "event.original") for e in events if rule_matches(RULE_ROOT_PASSWORD, e)]
+    assert not fired, f"rule fired on: {fired}"
