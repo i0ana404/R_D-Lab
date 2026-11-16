@@ -1,1 +1,1 @@
-{"query": {"bool": {"must": [{"query_string": {"query": "event.category:authentication AND event.outcome:failure AND event.reason:invalid_user", "analyze_wildcard": true}}]}}}
+{"query": {"bool": {"must": [{"query_string": {"query": "(event.category:authentication AND event.outcome:failure AND event.reason:invalid_user) AND (NOT source.ip:192.0.2.50)", "analyze_wildcard": true}}]}}}

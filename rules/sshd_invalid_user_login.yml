@@ -23,7 +23,12 @@ detection:
         event.category: authentication
         event.outcome: failure
         event.reason: invalid_user
-    condition: selection_invalid_user
+    # Tuning (Lab 5 Part D): the internal monitoring host 192.0.2.50 runs a health check with a
+    # removed account and fails all day. Excluded by IP; trade-off: an attacker on that host
+    # would not be seen by this rule (accepted, recorded in the risk register).
+    filter_monitoring_host:
+        source.ip: 192.0.2.50
+    condition: selection_invalid_user and not filter_monitoring_host
 falsepositives:
     - Legitimate users mistyping their user name
     - Automation or monitoring jobs still configured with a removed or renamed account

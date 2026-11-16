@@ -196,3 +196,30 @@ def test_other_lines_are_tagged_unparsed(events_by_line, index):
         assert get(event, field) is None, f"{field} should be absent on an unparsed line"
     for field, expected in UNPARSED[index].items():
         assert get(event, field) == expected
+
+
+# End to end for rules/sshd_invalid_user_login.yml (R-03): raw sshd line -> pipeline -> rule.
+from sigma_match import rule_matches  # noqa: E402
+
+RULE_INVALID_USER = ROOT / "rules" / "sshd_invalid_user_login.yml"
+SAMPLES = Path(__file__).resolve().parent / "samples"
+
+
+def _lines(path):
+    return [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_invalid_user_positive_sample_fires_rule():
+    sample = SAMPLES / "sshd_invalid_user_positive.log"
+    events = run_pipeline(sample)
+    assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
+    quiet = [get(e, "event.original") for e in events if not rule_matches(RULE_INVALID_USER, e)]
+    assert not quiet, f"rule did not fire on: {quiet}"
+
+
+def test_invalid_user_negative_sample_does_not_fire_rule():
+    sample = SAMPLES / "sshd_invalid_user_negative.log"
+    events = run_pipeline(sample)
+    assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
+    fired = [get(e, "event.original") for e in events if rule_matches(RULE_INVALID_USER, e)]
+    assert not fired, f"rule fired on: {fired}"
