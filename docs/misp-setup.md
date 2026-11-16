@@ -26,3 +26,18 @@ ghcr.io/egos-tech/smtp                                         2.0.12           
 - ssl/key.pem root:101 0640 (cerinta misp-docker: nginx ruleaza ca uid/gid 101). Certificatul si cheia NU sunt in git.
 - Verificat fara -k: curl --cacert root_ca.crt https://localhost:8444/ -> HTTP 302.
 - MISP_CA pentru PyMISP = root_ca.crt (abatere de la ghid, care lasa MISP_CA gol si dezactiveaza verificarea TLS).
+
+## Feed lifecycle (2026-11-16)
+
+- Warninglists: misp-docker ships all 225 disabled, so `enforce_warninglist=True` filtered nothing.
+  Enabled 135 of the 159 CIDR lists (reserved ranges, public DNS, CDNs, large SaaS, sinkholes, research scanners).
+  Deliberately NOT enabled (24): cloud/VPS hosting (AWS, Azure x4, GCP, Oracle, Alibaba, Tencent, Huawei, IBM,
+  DigitalOcean, Linode, Vultr, Hetzner, OVH, Scaleway, Leaseweb, CoreWeave, GoDaddy, Rackspace), Tor exit nodes, VPN ranges.
+  Reason: SSH brute force largely comes from such infrastructure; suppressing it would hide true positives (R-10 trade-off).
+- Age distribution of to_ids IP attributes (ip-src/ip-dst), before -> after warninglists:
+  30d 0 -> 0 | 90d 7 -> 6 | 180d 3164 -> 3085 | 365d 13559 -> 13059 | 730d 16295 -> 15794 (total IP 51408, to_ids 39785).
+- MISP_MAX_AGE=180d chosen at run time (script default stays 30d): 30d is empty for this feed, 365d keeps more reassigned IPs.
+- Secrets are injected with `sops exec-env secrets/intel.enc.yaml '...'`, never written to disk.
+- PyMISP 3.0.0 works against MISP 2.5.51 (server recommends 2.5.34.2; PyMISP only logs an info message).
+- First auth key was rejected ("Failed authentication"); replaced with a new key, old key deleted.
+- First run (2026-11-16, MISP_MAX_AGE=180d): 3085 attributes -> 2770 unique IPs in enrich/ioc_ip.yml (valid YAML, git-ignored).
