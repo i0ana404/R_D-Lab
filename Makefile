@@ -3,10 +3,11 @@
 # and skips decryption.
 .PHONY: secrets up down test
 
-# Decrypt the admin password at deploy time only. umask 077 makes .env.secrets readable by the
-# owner alone, and `make down` deletes it.
+# Decrypt secrets/opensearch.enc.yaml and secrets/intel.enc.yaml at deploy time only. umask 077
+# makes .env.secrets readable by the owner alone. If either decryption fails, the target exits
+# non-zero and leaves no partial .env.secrets. `make down` deletes it.
 secrets:
-	umask 077 && sops -d secrets/opensearch.enc.yaml | sed 's/: /=/' > .env.secrets
+	umask 077 && sops -d secrets/opensearch.enc.yaml > .env.secrets.tmp && sops -d secrets/intel.enc.yaml >> .env.secrets.tmp && sed 's/: /=/' .env.secrets.tmp > .env.secrets; rc=$$?; rm -f .env.secrets.tmp; [ $$rc -eq 0 ] || rm -f .env.secrets; exit $$rc
 
 up: secrets
 	docker compose --env-file .env --env-file .env.secrets up -d
