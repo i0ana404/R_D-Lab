@@ -1,0 +1,31 @@
+title: SSH Failed Login for Non-Existent User
+id: 62dea2a6-f147-4297-9efc-35f2d4b836d8
+status: experimental
+description: |
+    Detects a failed SSH authentication for a user name that does not exist on the host.
+    Attempts against default and service account names are a common sign of password
+    guessing or password spraying. Matches the ECS events produced by
+    logstash/pipeline/20-filter-sshd.conf.
+references:
+    - https://attack.mitre.org/techniques/T1110/001/
+    - https://attack.mitre.org/techniques/T1110/003/
+author: i0ana404
+date: 2026-11-16
+tags:
+    - attack.credential-access
+    - attack.t1110.001
+    - attack.t1110.003
+logsource:
+    product: linux
+    service: sshd
+detection:
+    selection_invalid_user:
+        event.category: authentication
+        event.outcome: failure
+        event.reason: invalid_user
+    condition: selection_invalid_user
+falsepositives:
+    - Legitimate users mistyping their user name
+    - Automation or monitoring jobs still configured with a removed or renamed account
+# Low: a single invalid-user failure is routine background noise on any reachable SSH host; severity is raised by volume or a MISP match.
+level: low
