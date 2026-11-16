@@ -1,0 +1,51 @@
+{
+  "index_patterns": ["sshd-*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "source": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "port": { "type": "integer" }
+          }
+        },
+        "user": {
+          "properties": {
+            "name": { "type": "keyword" }
+          }
+        },
+        "event": {
+          "properties": {
+            "category": { "type": "keyword" },
+            "action": { "type": "keyword" },
+            "outcome": { "type": "keyword" },
+            "reason": { "type": "keyword" }
+          }
+        },
+        "system": {
+          "properties": {
+            "auth": {
+              "properties": {
+                "ssh": {
+                  "properties": {
+                    "method": { "type": "keyword" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "host": {
+          "properties": {
+            "hostname": { "type": "keyword" }
+          }
+        },
+        "process": {
+          "properties": {
+            "name": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  }
+}
