@@ -40,5 +40,20 @@ services:
     depends_on:
       - opensearch-dashboards
 
+  logstash:
+    # Pinned tag and digest come from LOGSTASH_IMAGE in .env (documented in .env.example).
+    image: ${LOGSTASH_IMAGE}
+    container_name: logstash
+    environment:
+      # Value comes from the environment at deploy time (.env.secrets via `make up`); never set it here.
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?OPENSEARCH_INITIAL_ADMIN_PASSWORD is not set; run make up}
+      LS_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      # data/ is git-ignored; it holds synthetic sshd logs to replay.
+      - ./data:/data:ro
+    depends_on:
+      - opensearch
+
 volumes:
   opensearch-data:
