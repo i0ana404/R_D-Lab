@@ -1,39 +1,49 @@
-"""Record what Shodan already knows about your own public IP (RISK-REGISTER R-14, feeds R-05).
+"""Record what Shodan's InternetDB already knows about your own public IP (RISK-REGISTER R-14, feeds R-05).
 
-Query only an address you own or are authorised to assess. OWN_PUBLIC_IP is read
-from the environment at run time and is never written anywhere: the snapshot keeps
-only the fields that show whether the exposure changed, without the address.
-One host() call per run; the free tier rate-limits loops. Lab 7 diffs these snapshots.
+Query only an address you own or are authorised to assess. The Shodan host API returns
+403 on the free plan (it needs a paid membership), so this uses Shodan InternetDB: free
+for non-commercial use, no API key, data refreshed weekly. OWN_PUBLIC_IP is read from
+the environment at run time and is never written or printed: the snapshot keeps only
+the fields that show whether the exposure changed (hostnames are left out because ISP
+hostnames usually embed the address). One request per run. Lab 7 diffs these snapshots.
 """
 import json
 import os
+import urllib.error
+import urllib.request
 from datetime import date
 from pathlib import Path
 
+URL = "https://internetdb.shodan.io/{ip}"
 
-def snapshot(host):
-    """Keep the comparable fields, without the IP. host=None means Shodan has not indexed it."""
-    if host is None:
-        return {"indexed": False, "ports": [], "org": None, "last_update": None}
+
+def snapshot(record):
+    """Keep the comparable fields, without the IP. record=None means InternetDB has no data."""
+    if not record or "ports" not in record:
+        return {"indexed": False, "ports": [], "vulns": [], "tags": []}
     return {
         "indexed": True,
-        "ports": sorted(host.get("ports", [])),
-        "org": host.get("org"),
-        "last_update": host.get("last_update"),
+        "ports": sorted(record.get("ports", [])),
+        "vulns": sorted(record.get("vulns", [])),
+        "tags": sorted(record.get("tags", [])),
     }
 
 
-def main():
-    import shodan
-
-    api = shodan.Shodan(os.environ["SHODAN_KEY"])
+def fetch(ip):
+    """One InternetDB lookup. 404 means not indexed; errors never echo the address."""
     try:
-        host = api.host(os.environ["OWN_PUBLIC_IP"])
-    except shodan.APIError as err:
-        if "No information available" not in str(err):
-            raise SystemExit(f"Shodan: {err}")
-        host = None  # not indexed: a valid finding and a baseline for Lab 7
-    snap = snapshot(host)
+        with urllib.request.urlopen(URL.format(ip=ip), timeout=20) as resp:
+            return json.load(resp)
+    except urllib.error.HTTPError as err:
+        if err.code == 404:
+            return None
+        raise SystemExit(f"InternetDB: HTTP {err.code}") from None
+    except urllib.error.URLError as err:
+        raise SystemExit(f"InternetDB: {err.reason}") from None
+
+
+def main():
+    snap = snapshot(fetch(os.environ["OWN_PUBLIC_IP"]))
     out = Path("exposure") / f"{date.today()}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(snap, indent=2) + "\n")
