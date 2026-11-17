@@ -5,3 +5,5 @@ certs/
 data/
 .venv/
 __pycache__/
+enrich/
+exposure/
