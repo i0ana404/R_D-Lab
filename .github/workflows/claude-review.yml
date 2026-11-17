@@ -17,8 +17,8 @@ concurrency:
 
 jobs:
   review:
-    # The action refuses bot actors, so Dependabot PRs are left to the CI scanners; drafts wait.
-    if: github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft
+    # The action refuses bot actors (Dependabot PRs are left to the CI scanners), fork PRs get no secrets, and drafts wait: all three are skipped.
+    if: github.event.pull_request.user.login != 'dependabot[bot]' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
