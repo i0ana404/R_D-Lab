@@ -15,6 +15,8 @@ from datetime import date
 from pathlib import Path
 
 URL = "https://internetdb.shodan.io/{ip}"
+# InternetDB answers 403 to Python's default "Python-urllib/3.x" User-Agent.
+HEADERS = {"User-Agent": "R_D-Lab-exposure-check/1.0", "Accept": "application/json"}
 
 
 def snapshot(record):
@@ -32,7 +34,8 @@ def snapshot(record):
 def fetch(ip):
     """One InternetDB lookup. 404 means not indexed; errors never echo the address."""
     try:
-        with urllib.request.urlopen(URL.format(ip=ip), timeout=20) as resp:
+        req = urllib.request.Request(URL.format(ip=ip), headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=20) as resp:
             return json.load(resp)
     except urllib.error.HTTPError as err:
         if err.code == 404:

@@ -42,3 +42,14 @@ def test_fetch_treats_404_as_not_indexed_and_hides_the_address(monkeypatch):
         assert "198.51.100.20" not in str(exc)
     else:
         raise AssertionError("expected SystemExit on HTTP 500")
+
+
+def test_fetch_sends_its_own_user_agent(monkeypatch):
+    seen = {}
+
+    def capture(req, timeout):
+        seen["ua"] = req.get_header("User-agent")
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, io.BytesIO(b"{}"))
+    monkeypatch.setattr(exposure_check.urllib.request, "urlopen", capture)
+    exposure_check.fetch("198.51.100.20")
+    assert seen["ua"] and not seen["ua"].startswith("Python-urllib")
