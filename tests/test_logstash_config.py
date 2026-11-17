@@ -13,6 +13,7 @@ from test_sshd_ecs import logstash_image
 
 ROOT = Path(__file__).resolve().parent.parent
 PIPELINE = ROOT / "logstash" / "pipeline"
+IOC_DICTIONARY = ROOT / "tests" / "samples" / "ioc_ip_test.yml"
 
 
 def test_stack_pipeline_config_is_valid():
@@ -26,6 +27,8 @@ def test_stack_pipeline_config_is_valid():
         "-e", "LS_JAVA_OPTS=-Xms256m -Xmx256m",
         "-e", "OPENSEARCH_INITIAL_ADMIN_PASSWORD=unused",
         "--mount", f"type=bind,source={PIPELINE},target=/usr/share/logstash/pipeline,readonly",
+        # Dictionary for 30-enrich-ioc.conf (test copy, in place of the git-ignored enrich/ioc_ip.yml).
+        "--mount", f"type=bind,source={IOC_DICTIONARY},target=/enrich/ioc_ip.yml,readonly",
         image, "--config.test_and_exit", "-f", "/usr/share/logstash/pipeline/",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)

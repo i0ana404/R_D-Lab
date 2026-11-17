@@ -52,6 +52,8 @@ services:
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
       # data/ is git-ignored; it holds synthetic sshd logs to replay.
       - ./data:/data:ro
+      # enrich/ is git-ignored; scripts/misp_pull.py writes ioc_ip.yml there for 30-enrich-ioc.conf.
+      - ./enrich:/enrich:ro
     depends_on:
       - opensearch
 

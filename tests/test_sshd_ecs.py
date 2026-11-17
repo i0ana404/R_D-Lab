@@ -15,10 +15,13 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FILTER = ROOT / "logstash" / "pipeline" / "20-filter-sshd.conf"
+ENRICH = ROOT / "logstash" / "pipeline" / "30-enrich-ioc.conf"
 HARNESS = Path(__file__).resolve().parent / "logstash"
 SAMPLE = Path(__file__).resolve().parent / "samples" / "sshd_auth.log"
+IOC_DICTIONARY = Path(__file__).resolve().parent / "samples" / "ioc_ip_test.yml"
 
 CONTAINER_PIPELINE = "/usr/share/logstash/pipeline"
+CONTAINER_IOC_DICTIONARY = "/enrich/ioc_ip.yml"
 TIMEOUT_SECONDS = 300
 
 
@@ -53,12 +56,15 @@ def run_pipeline(sample_path):
     mounts = {
         HARNESS / "00-input-stdin.conf": "00-input-stdin.conf",
         FILTER: "20-filter-sshd.conf",
+        ENRICH: "30-enrich-ioc.conf",
         HARNESS / "99-output-stdout.conf": "99-output-stdout.conf",
     }
     cmd = ["docker", "run", "--rm", "-i", "--network", "none",
            "-e", "LS_JAVA_OPTS=-Xms256m -Xmx256m"]
     for source, name in mounts.items():
         cmd += ["--mount", f"type=bind,source={source},target={CONTAINER_PIPELINE}/{name},readonly"]
+    # Test dictionary for 30-enrich-ioc.conf, in place of the real MISP export.
+    cmd += ["--mount", f"type=bind,source={IOC_DICTIONARY},target={CONTAINER_IOC_DICTIONARY},readonly"]
     cmd += [
         image,
         # Only the NN-*.conf files, so the image's default logstash.conf is not loaded.
@@ -243,3 +249,29 @@ def test_root_password_negative_sample_does_not_fire_rule():
     assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
     fired = [get(e, "event.original") for e in events if rule_matches(RULE_ROOT_PASSWORD, e)]
     assert not fired, f"rule fired on: {fired}"
+
+
+# MISP enrichment of the source address: logstash/pipeline/30-enrich-ioc.conf with tests/samples/ioc_ip_test.yml.
+def test_known_bad_source_is_enriched():
+    """A login from a source IP in the MISP dictionary is tagged and scored (R-08, R-10)."""
+    sample = SAMPLES / "sshd_ioc_known_bad.log"
+    events = run_pipeline(sample)
+    assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
+    for event in events:
+        assert get(event, "threat.indicator.matched") == "misp:0:Network activity"
+        assert "threat_match" in as_list(event.get("tags"))
+        assert get(event, "event.risk_score") == 80.0
+        assert isinstance(get(event, "event.risk_score"), float)
+        assert get(event, "source.ip") == "203.0.113.66"
+
+
+def test_clean_source_is_not_enriched():
+    """A login from a source IP not in the MISP dictionary gets no threat fields (R-08, R-10)."""
+    sample = SAMPLES / "sshd_ioc_clean.log"
+    events = run_pipeline(sample)
+    assert len(events) == len(_lines(sample)), f"expected {len(_lines(sample))} events, got {len(events)}"
+    for event in events:
+        assert get(event, "source.ip") == "198.51.100.77"
+        assert "threat" not in event, f"threat should be absent, got {event.get('threat')!r}"
+        assert "threat_match" not in as_list(event.get("tags"))
+        assert get(event, "event.risk_score") is None

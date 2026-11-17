@@ -1,7 +1,9 @@
 # Deploy targets from Lab 3 (R-02). Run by a person in the Ubuntu VM, never by the AI agent.
+# Targets must run in order so enrich-check stops up before secrets decrypts anything, even under make -j.
+.NOTPARALLEL:
 # .PHONY is required: without it, make treats the secrets/ directory as the 'secrets' target
 # and skips decryption.
-.PHONY: secrets up down test
+.PHONY: secrets enrich-check up down test
 
 # Decrypt secrets/opensearch.enc.yaml and secrets/intel.enc.yaml at deploy time only. umask 077
 # makes .env.secrets readable by the owner alone. If either decryption fails, the target exits
@@ -9,7 +11,11 @@
 secrets:
 	umask 077 && sops -d secrets/opensearch.enc.yaml > .env.secrets.tmp && sops -d secrets/intel.enc.yaml >> .env.secrets.tmp && sed 's/: /=/' .env.secrets.tmp > .env.secrets; rc=$$?; rm -f .env.secrets.tmp; [ $$rc -eq 0 ] || rm -f .env.secrets; exit $$rc
 
-up: secrets
+# Logstash's 30-enrich-ioc.conf cannot start without the lookup file enrich/ioc_ip.yml.
+enrich-check:
+	@test -s enrich/ioc_ip.yml || { echo "enrich/ioc_ip.yml is missing or empty: run scripts/misp_pull.py first (needed by logstash/pipeline/30-enrich-ioc.conf)" >&2; exit 1; }
+
+up: enrich-check secrets
 	docker compose --env-file .env --env-file .env.secrets up -d
 
 # The compose file requires the admin password variable even for `down`. The placeholder only
