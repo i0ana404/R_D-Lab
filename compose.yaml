@@ -57,5 +57,76 @@ services:
     depends_on:
       - opensearch
 
+  # Observability for R-09: a stopped or unhealthy pipeline raises an alert. Every port binds to
+  # 127.0.0.1 only. opensearch-exporter logs in with the least-privilege user created by
+  # scripts/opensearch-monitor-user.sh; --es.ssl-skip-verify matches Logstash's lab-only setting
+  # for OpenSearch's self-signed demo certificate.
+  # Release tags checked on GitHub on 2026-11-17/18 (each at least 7 days old); digests recorded
+  # on the deploy host on 2026-11-18 with docker pull + docker inspect.
+  prometheus:
+    # v3.16.0 released 2026-11-05.
+    image: prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+    volumes:
+      - ./observability/prometheus:/etc/prometheus:ro
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT}:9090"
+    depends_on:
+      - alertmanager
+      - logstash-exporter
+      - opensearch-exporter
+
+  alertmanager:
+    # v0.35.0 released 2026-11-09.
+    image: prom/alertmanager:v0.35.0@sha256:e638797febd034838eca8b98cdbd46f951e9bf7f178777aa8669167406a9946c
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./observability/alertmanager:/etc/alertmanager:ro
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT}:9093"
+
+  grafana:
+    # 13.3.1 released 2026-11-10.
+    image: grafana/grafana:13.3.1@sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf
+    environment:
+      # Value comes from the environment at deploy time (.env.secrets via `make up`); never set it here.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is not set; run make up}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT}:3000"
+    depends_on:
+      - prometheus
+
+  logstash-exporter:
+    # v1.9.2 released 2026-10-20.
+    image: kuskoman/logstash-exporter:v1.9.2@sha256:1fa5ef435073d83525d54809cb4e5e4b5375a774e368c92677c854c6e6524902
+    environment:
+      LOGSTASH_URL: http://logstash:9600
+    depends_on:
+      - logstash
+
+  opensearch-exporter:
+    # elasticsearch_exporter v1.11.0 released 2026-07-10.
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:v1.11.0@sha256:a056739b095df4baaa076f0b31321394233da9a240eeada2623d1b028b7ee7a6
+    command:
+      - --es.uri=https://opensearch:9200
+      - --es.ssl-skip-verify
+    environment:
+      ES_USERNAME: prometheus
+      # Value comes from the environment at deploy time (.env.secrets via `make up`); never set it here.
+      ES_PASSWORD: ${OPENSEARCH_MONITOR_PASSWORD:?OPENSEARCH_MONITOR_PASSWORD is not set; run make up}
+    depends_on:
+      - opensearch
+
 volumes:
   opensearch-data:

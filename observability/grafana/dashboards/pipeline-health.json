@@ -1,0 +1,34 @@
+{
+  "uid": "pipeline-health",
+  "title": "Detection pipeline health (R-09)",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Logstash up (1 = up)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "logstash_info_up" }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "OpenSearch cluster status",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "elasticsearch_cluster_health_status == 1", "legendFormat": "{{color}}" }]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Firing alerts",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true }]
+    }
+  ]
+}

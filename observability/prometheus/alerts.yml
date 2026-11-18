@@ -1,0 +1,38 @@
+# Alert rules for the SSH detection pipeline (RISK-REGISTER R-09).
+# Unit tests: alerts_test.yml, run with promtool test rules (tests/test_observability.py).
+groups:
+  - name: detection-pipeline
+    rules:
+      - alert: LogstashDown
+        # The exporter reports logstash_info_up 0 when it cannot reach Logstash's API;
+        # up == 0 covers the exporter itself being down.
+        expr: logstash_info_up == 0 or up{job="logstash"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          risk: R-09
+        annotations:
+          summary: "Logstash is down: sshd logs are not reaching OpenSearch"
+          description: "No sshd events are ingested, so the Sigma detections see nothing. Check the logstash container."
+      - alert: OpenSearchUnavailable
+        # The exporter drops the cluster-health series when it cannot read the cluster,
+        # so a missing series means OpenSearch (or the exporter login) is down.
+        expr: elasticsearch_cluster_health_status{color="red"} == 1 or absent(elasticsearch_cluster_health_status{color="red"})
+        for: 5m
+        labels:
+          severity: critical
+          risk: R-09
+        annotations:
+          summary: "OpenSearch is red or unreachable"
+          description: "Detections cannot store or query sshd events. Check the opensearch container and the exporter's monitoring login."
+      - alert: LogstashQueueBackpressure
+        # Logstash uses the memory queue, so queue event counts say nothing; backpressure is the
+        # queue-growth signal. Threshold 0.5 is an estimate: tune it with real load.
+        expr: max by (pipeline) (logstash_stats_pipeline_flow_queue_backpressure_current) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          risk: R-09
+        annotations:
+          summary: "Logstash inputs are blocked by a full queue"
+          description: "Inputs spend more than half their time blocked pushing into the queue, so sshd events are delayed or lost upstream. Usually OpenSearch is slow or unreachable. Check the logstash and opensearch containers."

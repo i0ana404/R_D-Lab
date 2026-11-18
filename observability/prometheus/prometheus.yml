@@ -1,0 +1,20 @@
+# Prometheus for the SSH detection stack (RISK-REGISTER R-09: a stopped pipeline must not stay silent).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: logstash
+    static_configs:
+      - targets: ["logstash-exporter:9198"]
+  - job_name: opensearch
+    static_configs:
+      - targets: ["opensearch-exporter:9114"]
