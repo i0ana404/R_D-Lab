@@ -6,6 +6,14 @@ set -eu
 
 : "${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?missing in the opensearch container}"
 : "${OPENSEARCH_MONITOR_PASSWORD:?not passed by opensearch-monitor-user.sh}"
+# The password is placed in a JSON body below without escaping, so it must stay alphanumeric
+# (secrets/observability.enc.yaml was generated that way). Refuse anything else.
+case "$OPENSEARCH_MONITOR_PASSWORD" in
+*[!A-Za-z0-9]*)
+    echo "OPENSEARCH_MONITOR_PASSWORD must be alphanumeric" >&2
+    exit 1
+    ;;
+esac
 
 base=https://localhost:9200
 tmp=$(mktemp -d)
