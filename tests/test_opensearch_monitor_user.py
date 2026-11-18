@@ -34,6 +34,9 @@ done
 user=$(sed -n 's/^user = "\([^:]*\):.*/\1/p' "$cfg")
 echo "$method $url $user" >>"$CALLS"
 echo '{}' >"$out"
+case "$url" in
+*"${TRANSPORT_FAIL:-no-such-url}"*) printf 000; exit 7 ;;
+esac
 case "$user:$method:$url" in
 admin:GET:*/_plugins/_security/health) printf 200 ;;
 admin:PUT:*monitor-read-probe*) printf 201 ;;
@@ -86,6 +89,14 @@ def test_user_that_can_write_fails_and_the_probe_is_removed(tmp_path):
     result, calls = run_script(tmp_path, WRITE_CODE="201")
     assert result.returncode != 0
     assert "write=201 (want 403)" in result.stderr
+    assert "DELETE https://localhost:9200/monitor-write-probe admin" in calls
+
+
+def test_transport_error_is_reported_and_probes_are_removed(tmp_path):
+    result, calls = run_script(tmp_path, TRANSPORT_FAIL="monitor-read-probe/_search")
+    assert result.returncode != 0
+    assert "search=000 (want 403)" in result.stderr
+    assert "DELETE https://localhost:9200/monitor-read-probe admin" in calls
     assert "DELETE https://localhost:9200/monitor-write-probe admin" in calls
 
 

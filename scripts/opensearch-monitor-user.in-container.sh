@@ -17,19 +17,27 @@ esac
 
 base=https://localhost:9200
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+# On any exit, also on an aborted run, remove the probe indexes and the credential files.
+cleanup() {
+    for probe in monitor-read-probe monitor-write-probe; do
+        status "$tmp/admin.cfg" DELETE "/$probe" >/dev/null 2>&1 || true
+    done
+    rm -rf "$tmp"
+}
+trap cleanup EXIT
 umask 077
 # Credentials go through curl config files, not argv, so they never show in ps.
 printf 'user = "admin:%s"\n' "$OPENSEARCH_INITIAL_ADMIN_PASSWORD" >"$tmp/admin.cfg"
 printf 'user = "prometheus:%s"\n' "$OPENSEARCH_MONITOR_PASSWORD" >"$tmp/monitor.cfg"
 
-# status CONFIG METHOD PATH [BODY_FILE]: print the HTTP status, keep the body in $tmp/resp
+# status CONFIG METHOD PATH [BODY_FILE]: print the HTTP status, keep the body in $tmp/resp.
+# A transport error prints 000 instead of aborting under set -e, so the checks below report it.
 status() {
     if [ $# -eq 4 ]; then
         curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3" \
-            -H 'Content-Type: application/json' --data-binary "@$4"
+            -H 'Content-Type: application/json' --data-binary "@$4" || true
     else
-        curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3"
+        curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3" || true
     fi
 }
 
@@ -67,15 +75,12 @@ put rolesmapping/prometheus_monitor "$tmp/mapping.json"
 # Least privilege, checked: health readable, index data not readable, writes refused.
 # The read check uses a concrete probe index the admin creates: a wildcard such as sshd-*
 # answers 200 with no hits while no index matches yet, which would prove nothing.
+# cleanup() removes both probe indexes when the script exits.
 printf '%s\n' '{"probe": 1}' >"$tmp/doc.json"
 status "$tmp/admin.cfg" PUT '/monitor-read-probe/_doc/1?refresh=true' "$tmp/doc.json" >/dev/null
 health=$(status "$tmp/monitor.cfg" GET /_cluster/health)
 search=$(status "$tmp/monitor.cfg" GET /monitor-read-probe/_search)
 write=$(status "$tmp/monitor.cfg" PUT /monitor-write-probe/_doc/1 "$tmp/doc.json")
-status "$tmp/admin.cfg" DELETE /monitor-read-probe >/dev/null || true
-if [ "$write" != 403 ]; then
-    status "$tmp/admin.cfg" DELETE /monitor-write-probe >/dev/null || true
-fi
 if [ "$health" != 200 ] || [ "$search" != 403 ] || [ "$write" != 403 ]; then
     echo "monitor user check failed: health=$health (want 200) search=$search (want 403) write=$write (want 403)" >&2
     exit 1

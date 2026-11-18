@@ -61,6 +61,27 @@ tests:
         alertname: OpenSearchUnavailable
         exp_alerts: []
 
+  - name: OpenSearchUnavailable fires on a reachable but red cluster after 5 minutes
+    interval: 1m
+    input_series:
+      - series: 'elasticsearch_cluster_health_status{cluster="opensearch-cluster", color="red"}'
+        values: "1x10"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: OpenSearchUnavailable
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: OpenSearchUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              risk: R-09
+              cluster: opensearch-cluster
+              color: red
+            exp_annotations:
+              summary: "OpenSearch is red or unreachable"
+              description: "Detections cannot store or query sshd events. Check the opensearch container and the exporter's monitoring login."
+
   - name: OpenSearchUnavailable fires when the cluster-health series disappears
     interval: 1m
     input_series:
