@@ -39,7 +39,7 @@ case "$url" in
 esac
 case "$user:$method:$url" in
 admin:GET:*/_plugins/_security/health) printf 200 ;;
-admin:PUT:*monitor-read-probe*) printf 201 ;;
+admin:PUT:*monitor-read-probe*) printf "${READ_PROBE_CODE:-201}" ;;
 admin:*) printf 200 ;;
 prometheus:GET:*/_cluster/health) printf 200 ;;
 prometheus:GET:*/monitor-read-probe/_search) printf "${READ_CODE:-403}" ;;
@@ -96,6 +96,16 @@ def test_transport_error_is_reported_and_probes_are_removed(tmp_path):
     result, calls = run_script(tmp_path, TRANSPORT_FAIL="monitor-read-probe/_search")
     assert result.returncode != 0
     assert "search=000 (want 403)" in result.stderr
+    assert "DELETE https://localhost:9200/monitor-read-probe admin" in calls
+    assert "DELETE https://localhost:9200/monitor-write-probe admin" in calls
+
+
+def test_read_probe_create_failure_stops_before_monitor_checks(tmp_path):
+    result, calls = run_script(tmp_path, READ_PROBE_CODE="500")
+    assert result.returncode != 0
+    assert "read probe create returned 500" in result.stderr
+    assert "GET https://localhost:9200/monitor-read-probe/_search prometheus" not in calls
+    assert "PUT https://localhost:9200/monitor-write-probe/_doc/1 prometheus" not in calls
     assert "DELETE https://localhost:9200/monitor-read-probe admin" in calls
     assert "DELETE https://localhost:9200/monitor-write-probe admin" in calls
 

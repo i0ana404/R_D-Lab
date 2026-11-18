@@ -17,6 +17,18 @@ esac
 
 base=https://localhost:9200
 tmp=$(mktemp -d)
+
+# status CONFIG METHOD PATH [BODY_FILE]: print the HTTP status, keep the body in $tmp/resp.
+# A transport error prints 000 instead of aborting under set -e, so the checks below report it.
+status() {
+    if [ $# -eq 4 ]; then
+        curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3" \
+            -H 'Content-Type: application/json' --data-binary "@$4" || true
+    else
+        curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3" || true
+    fi
+}
+
 # On any exit, also on an aborted run, remove the probe indexes and the credential files.
 cleanup() {
     for probe in monitor-read-probe monitor-write-probe; do
@@ -29,17 +41,6 @@ umask 077
 # Credentials go through curl config files, not argv, so they never show in ps.
 printf 'user = "admin:%s"\n' "$OPENSEARCH_INITIAL_ADMIN_PASSWORD" >"$tmp/admin.cfg"
 printf 'user = "prometheus:%s"\n' "$OPENSEARCH_MONITOR_PASSWORD" >"$tmp/monitor.cfg"
-
-# status CONFIG METHOD PATH [BODY_FILE]: print the HTTP status, keep the body in $tmp/resp.
-# A transport error prints 000 instead of aborting under set -e, so the checks below report it.
-status() {
-    if [ $# -eq 4 ]; then
-        curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3" \
-            -H 'Content-Type: application/json' --data-binary "@$4" || true
-    else
-        curl -sk -K "$1" -o "$tmp/resp" -w '%{http_code}' -X "$2" "$base$3" || true
-    fi
-}
 
 # OpenSearch can take minutes to start in the VM: wait up to 5 minutes for the security API.
 tries=0
@@ -77,7 +78,14 @@ put rolesmapping/prometheus_monitor "$tmp/mapping.json"
 # answers 200 with no hits while no index matches yet, which would prove nothing.
 # cleanup() removes both probe indexes when the script exits.
 printf '%s\n' '{"probe": 1}' >"$tmp/doc.json"
-status "$tmp/admin.cfg" PUT '/monitor-read-probe/_doc/1?refresh=true' "$tmp/doc.json" >/dev/null
+code=$(status "$tmp/admin.cfg" PUT '/monitor-read-probe/_doc/1?refresh=true' "$tmp/doc.json")
+case "$code" in
+200 | 201) ;;
+*)
+    echo "monitor user check failed: read probe create returned $code" >&2
+    exit 1
+    ;;
+esac
 health=$(status "$tmp/monitor.cfg" GET /_cluster/health)
 search=$(status "$tmp/monitor.cfg" GET /monitor-read-probe/_search)
 write=$(status "$tmp/monitor.cfg" PUT /monitor-write-probe/_doc/1 "$tmp/doc.json")
