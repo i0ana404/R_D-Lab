@@ -57,10 +57,14 @@ put internalusers/prometheus "$tmp/user.json"
 put rolesmapping/prometheus_monitor "$tmp/mapping.json"
 
 # Least privilege, checked: health readable, index data not readable, writes refused.
+# The read check uses a concrete probe index the admin creates: a wildcard such as sshd-*
+# answers 200 with no hits while no index matches yet, which would prove nothing.
 printf '%s\n' '{"probe": 1}' >"$tmp/doc.json"
+status "$tmp/admin.cfg" PUT '/monitor-read-probe/_doc/1?refresh=true' "$tmp/doc.json" >/dev/null
 health=$(status "$tmp/monitor.cfg" GET /_cluster/health)
-search=$(status "$tmp/monitor.cfg" GET '/sshd-*/_search')
+search=$(status "$tmp/monitor.cfg" GET /monitor-read-probe/_search)
 write=$(status "$tmp/monitor.cfg" PUT /monitor-write-probe/_doc/1 "$tmp/doc.json")
+status "$tmp/admin.cfg" DELETE /monitor-read-probe >/dev/null || true
 if [ "$write" != 403 ]; then
     status "$tmp/admin.cfg" DELETE /monitor-write-probe >/dev/null || true
 fi
