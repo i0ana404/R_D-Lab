@@ -1,0 +1,82 @@
+# promtool unit tests for alerts.yml: each alert fires on the bad case and stays quiet on the good one.
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: LogstashDown fires after 2 minutes without Logstash and not before
+    interval: 1m
+    input_series:
+      - series: 'logstash_info_up{job="logstash", instance="logstash-exporter:9198"}'
+        values: "1 1 0 0 0 0"
+      - series: 'up{job="logstash", instance="logstash-exporter:9198"}'
+        values: "1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: LogstashDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: LogstashDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: LogstashDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              risk: R-09
+              job: logstash
+              instance: logstash-exporter:9198
+            exp_annotations:
+              summary: "Logstash is down: sshd logs are not reaching OpenSearch"
+              description: "No sshd events are ingested, so the Sigma detections see nothing. Check the logstash container."
+
+  - name: LogstashDown also fires when the exporter itself is down
+    interval: 1m
+    input_series:
+      - series: 'up{job="logstash", instance="logstash-exporter:9198"}'
+        values: "0 0 0 0"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogstashDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              risk: R-09
+              job: logstash
+              instance: logstash-exporter:9198
+            exp_annotations:
+              summary: "Logstash is down: sshd logs are not reaching OpenSearch"
+              description: "No sshd events are ingested, so the Sigma detections see nothing. Check the logstash container."
+
+  - name: OpenSearchUnavailable stays quiet on a yellow single-node cluster
+    interval: 1m
+    input_series:
+      - series: 'elasticsearch_cluster_health_status{cluster="opensearch-cluster", color="red"}'
+        values: "0x10"
+      - series: 'elasticsearch_cluster_health_status{cluster="opensearch-cluster", color="yellow"}'
+        values: "1x10"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OpenSearchUnavailable
+        exp_alerts: []
+
+  - name: OpenSearchUnavailable fires when the cluster-health series disappears
+    interval: 1m
+    input_series:
+      - series: 'elasticsearch_cluster_health_status{cluster="opensearch-cluster", color="red"}'
+        values: "0 0 stale"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OpenSearchUnavailable
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: OpenSearchUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              risk: R-09
+              color: red
+            exp_annotations:
+              summary: "OpenSearch is red or unreachable"
+              description: "Detections cannot store or query sshd events. Check the opensearch container and the exporter's monitoring login."
