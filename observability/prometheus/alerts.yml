@@ -25,3 +25,14 @@ groups:
         annotations:
           summary: "OpenSearch is red or unreachable"
           description: "Detections cannot store or query sshd events. Check the opensearch container and the exporter's monitoring login."
+      - alert: LogstashQueueBackpressure
+        # Logstash uses the memory queue, so queue event counts say nothing; backpressure is the
+        # queue-growth signal. Threshold 0.5 is an estimate: tune it with real load.
+        expr: max by (pipeline) (logstash_stats_pipeline_flow_queue_backpressure_current) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          risk: R-09
+        annotations:
+          summary: "Logstash inputs are blocked by a full queue"
+          description: "Inputs spend more than half their time blocked pushing into the queue, so sshd events are delayed or lost upstream. Usually OpenSearch is slow or unreachable. Check the logstash and opensearch containers."

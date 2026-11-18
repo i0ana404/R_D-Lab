@@ -101,3 +101,46 @@ tests:
             exp_annotations:
               summary: "OpenSearch is red or unreachable"
               description: "Detections cannot store or query sshd events. Check the opensearch container and the exporter's monitoring login."
+
+  - name: LogstashQueueBackpressure fires after 5 minutes of sustained backpressure and not before
+    interval: 1m
+    input_series:
+      - series: 'logstash_stats_pipeline_flow_queue_backpressure_current{job="logstash", pipeline="main", instance="logstash-exporter:9198"}'
+        values: "0.9x10"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: LogstashQueueBackpressure
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LogstashQueueBackpressure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              risk: R-09
+              pipeline: main
+            exp_annotations:
+              summary: "Logstash inputs are blocked by a full queue"
+              description: "Inputs spend more than half their time blocked pushing into the queue, so sshd events are delayed or lost upstream. Usually OpenSearch is slow or unreachable. Check the logstash and opensearch containers."
+
+  - name: LogstashQueueBackpressure stays quiet on low sustained backpressure
+    interval: 1m
+    input_series:
+      - series: 'logstash_stats_pipeline_flow_queue_backpressure_current{job="logstash", pipeline="main", instance="logstash-exporter:9198"}'
+        values: "0.1x10"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: LogstashQueueBackpressure
+        exp_alerts: []
+
+  - name: LogstashQueueBackpressure stays quiet on a 3-minute spike
+    interval: 1m
+    input_series:
+      - series: 'logstash_stats_pipeline_flow_queue_backpressure_current{job="logstash", pipeline="main", instance="logstash-exporter:9198"}'
+        values: "0.9x3 0x7"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogstashQueueBackpressure
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: LogstashQueueBackpressure
+        exp_alerts: []
