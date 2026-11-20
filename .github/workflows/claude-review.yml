@@ -48,6 +48,7 @@ jobs:
             Use inline comments for specific lines and one short summary comment with gh pr comment.
             In the summary comment, describe sensitive files and risky commands generically (for example "the encrypted secrets file" or "a forced push") instead of writing their paths or the commands themselves, because the repository guard hook blocks commands whose text names them.
             Do not approve, request changes, push or merge.
+          # --max-turns raised from 15 to 30: a large docs PR needed 21 turns (2026-11-20).
           claude_args: |
-            --max-turns 15
+            --max-turns 30
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

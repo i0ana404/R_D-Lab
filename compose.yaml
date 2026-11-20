@@ -27,8 +27,8 @@ services:
       - opensearch
 
   frontdoor:
-    # 1.30.6 (2026-10-14 security release), alpine-slim variant; digest recorded on the deploy host on 2026-11-16.
-    image: nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893
+    # 1.30.7 (2026-11-18 stable security release), alpine-slim variant; digest recorded on the deploy host on 2026-11-20.
+    image: nginx:1.30.7-alpine-slim@sha256:8c950211a641ec5b23f265450517001f6bcca533666120ebe36cb4cff3d00a55
     container_name: frontdoor
     volumes:
       - ./nginx/frontdoor.conf:/etc/nginx/conf.d/default.conf:ro
