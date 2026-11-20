@@ -1,0 +1,1 @@
+- [Ports from env vars](ports-from-env-vars.md) — never hardcode ports; use ${VAR:-default} with documented defaults
