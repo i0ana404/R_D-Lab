@@ -14,6 +14,7 @@ Risks and controls are tracked in RISK-REGISTER.md. Every change must serve a ri
 ## Security rules (never break these)
 
 - Never disable authentication or TLS to avoid handling secrets. Secrets are encrypted with SOPS and age.
+  - Exception: a lab-only deviation is allowed only when it is listed in RISK-REGISTER.md under 'Accepted lab exceptions' with the owner's sign-off, the reason and a follow-up. The agent never adds or widens an exception itself; it stops and asks.
 - Never write passwords, API keys or tokens into any file. Use placeholders and document them.
 - Never read, print or search `.env` files, `secrets/`, SSH keys or age keys.
 - Never decrypt secrets (`sops -d`). Decryption happens only at deploy time, run by a person.
