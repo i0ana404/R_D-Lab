@@ -54,7 +54,7 @@ flowchart LR
 
 | Component | Version / pin | Notes |
 |---|---|---|
-| nginx front door | 1.30.6-alpine-slim, by digest | Built from `nginx/Dockerfile`; certificate from the internal step-ca |
+| nginx front door | 1.30.7-alpine-slim, by digest | Built from `nginx/Dockerfile`; certificate from the internal step-ca |
 | OpenSearch, Dashboards | 2.19.1, by digest | Demo security plugin |
 | Logstash | `logstash-oss-with-opensearch-output-plugin:8.9.0`, by digest | Newest published tag (2023); known residual in R-13 |
 | Sigma | sigma-cli 3.1.0, pySigma-backend-opensearch 2.0.3 | sigma-cli 4 is incompatible with the backend (closed PR #19) |
@@ -149,6 +149,7 @@ On demo PR #22 (unquoted `rm -rf $LOGDIR/*`, `:latest` image, no risk reference)
 - Images are pinned by digest. A tag was observed moving to a new digest a week later (`r13-tag-moved-new-digest.png`), which is the reason for digest pinning.
 - Trivy blocks HIGH and CRITICAL findings. Pinning alone was not enough: the pinned nginx 1.27 image had 67 findings, and the pinned 1.30.6-alpine image gained three new ones a week later. The front door moved to the `alpine-slim` variant.
 - Dependabot waits 7 days before proposing an update. Five updates were merged and tested end to end with release v0.4.1 (signed, SBOM attached, `cosign verify` against the tag identity). Two were closed with reasons: nginx 1.31 is the mainline branch and brings no security fix over 1.30.6; sigma-cli 4 cannot be installed with the OpenSearch backend.
+- On 2026-11-20 the pinned 1.30.6 image failed the scan with 6 new nginx CVEs (4 CRITICAL); the front door moved to the 1.30.7 security release two days after it shipped, a documented exception to the 7-day cooldown.
 
 ## 9. Pipeline monitoring (Lab 7 A)
 
@@ -196,3 +197,17 @@ Three alerts, each with promtool unit tests and mutation checks: **LogstashDown*
 ## 13. Repository visibility
 
 The syllabus asks for a private repository. The repository is public, as agreed verbally with the instructor at the start of the module. The project treats this as a constraint, not an exception: gitleaks, push protection and the reviewer guard against secrets; secrets exist only as SOPS ciphertext; the owner's public IP and personal data never enter Git; screenshots are checked before they are published; the old Shodan key, whose ciphertext stays in history, was rotated.
+
+## 14. How to reproduce
+
+**Works from a clone, no secrets needed:**
+
+- Read this document, [RISK-REGISTER.md](../RISK-REGISTER.md) and the screenshots indexed in [evidence/README.md](evidence/README.md).
+- Run the tests: `make test` (or `python3 -m pytest -q`) with Docker available, the same command the CI `test` job runs. The pipeline tests start Logstash with `--network none` on the synthetic samples in `tests/samples/`.
+- Verify a release: `cosign verify` of the release image against the `ci.yml` tag identity (keyless signature, see section 8).
+
+**A full `make up` needs what is deliberately not in the repository:**
+
+- An own age key and secrets encrypted with it (`secrets/*.enc.yaml`); the variable names are listed in `.env.example`.
+- A front-door certificate and key from an own CA in `certs/` (`frontdoor.crt`, `frontdoor.key`).
+- `enrich/ioc_ip.yml` from an own MISP export (`scripts/misp_pull.py`); `make up` refuses to start without it.

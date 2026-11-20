@@ -157,6 +157,7 @@ Screenshots marked *re-taken 2026-11-19/20* were captured again from the closed 
 | r13-cosign-verify-v0.4.1.png | `cosign verify` of v0.4.1 with the tag identity | R-13 |
 | r13-cosign-digest-v0.4.1.png | Signed digest of v0.4.1 | R-13 |
 | r13-syft-sbom.png | Syft SBOM of v0.4.0: 71 packages (same count as Trivy in CI) | R-13 |
+| r13-nginx-1.30.7-clean-and-config-ok.png | nginx 1.30.7-alpine-slim: Trivy 0 HIGH/CRITICAL and nginx -t OK with the front-door config (2026-11-20) | R-13 |
 
 ## R-14: own exposure
 
